@@ -207,6 +207,7 @@ ClosestConvexResultCallback implements ConvexResultCallback;
 
 interface btCollisionShape {
   void setLocalScaling([Const, Ref] btVector3 scaling);
+  [Const, Ref] btVector3 getLocalScaling();
   void calculateLocalInertia(float mass, [Ref] btVector3 inertia);
   void setMargin(float margin);
   float getMargin();
@@ -232,6 +233,9 @@ interface btCapsuleShape {
   void btCapsuleShape(float radius, float height);
   void setMargin(float margin);
   float getMargin();
+  long getUpAxis();
+  float getRadius();
+  float getHalfHeight();
 };
 btCapsuleShape implements btCollisionShape;
 
@@ -448,6 +452,9 @@ interface btRigidBody {
   void setAngularFactor([Const, Ref] btVector3 angularFactor);
   btRigidBody upcast([Const] btCollisionObject colObj);
   void getAabb([Ref] btVector3 aabbMin, [Ref] btVector3 aabbMax);
+  void applyGravity();
+  [Const, Ref] btVector3 getGravity();
+  void setGravity([Const, Ref] btVector3 acceleration);
 };
 btRigidBody implements btCollisionObject;
 
@@ -578,10 +585,12 @@ interface btCollisionWorld {
   btOverlappingPairCache getPairCache();
   [Ref] btDispatcherInfo getDispatchInfo();
   void addCollisionObject(btCollisionObject collisionObject, optional short collisionFilterGroup, optional short collisionFilterMask);
+  void removeCollisionObject(btCollisionObject collisionObject);
   [Const] btBroadphaseInterface getBroadphase ();
   void convexSweepTest([Const] btConvexShape castShape, [Const, Ref] btTransform from, [Const, Ref] btTransform to, [Ref] ConvexResultCallback resultCallback, float allowedCcdPenetration);
   void contactPairTest([Const] btCollisionObject colObjA, [Const] btCollisionObject colObjB, [Ref] ContactResultCallback resultCallback);
   void contactTest([Const] btCollisionObject colObj, [Ref] ContactResultCallback resultCallback);
+  void updateSingleAabb([Const] btCollisionObject colObj);
 };
 
 interface btContactSolverInfo {
@@ -724,6 +733,7 @@ interface btKinematicCharacterController {
   btPairCachingGhostObject getGhostObject ();
   void setUseGhostSweepTest (boolean useGhostObjectSweepTest);
   boolean onGround ();
+  void setUpInterpolate (boolean value);
 };
 btKinematicCharacterController implements btActionInterface;
 
@@ -818,6 +828,26 @@ interface tMaterialArray {
 };
 
 [Prefix="btSoftBody::"]
+interface Anchor {
+  attribute Node m_node;
+  [Value] attribute btVector3 m_local;
+  attribute btRigidBody m_body;
+  attribute float m_influence;
+  [Value] attribute btMatrix3x3 m_c0;
+  [Value] attribute btVector3 m_c1;
+  attribute float m_c2;
+};
+
+[Prefix="btSoftBody::"]
+interface tAnchorArray {
+  [Const] long size();
+  [Value] Anchor at(long n);
+  void clear();
+  void push_back([Ref] Anchor val);
+  void pop_back();
+};
+
+[Prefix="btSoftBody::"]
 interface Config {
   attribute float kVCF;
   attribute float kDP;
@@ -852,6 +882,7 @@ interface btSoftBody {
   [Value] attribute Config m_cfg;
   [Value] attribute tNodeArray m_nodes;
   [Value] attribute tMaterialArray m_materials;
+  [Value] attribute tAnchorArray m_anchors; 
 
   [Const] boolean checkLink( long node0, long node1);
   [Const] boolean checkFace( long node0, long node1, long node2);
@@ -869,6 +900,7 @@ interface btSoftBody {
   void rotate( [Const, Ref] btQuaternion rot);
   void scale(  [Const, Ref] btVector3 scl);
   long generateClusters(long k, optional long maxiterations);
+  long generateBendingConstraints(long distance, Material mat);
   btSoftBody upcast([Const] btCollisionObject colObj);
 };
 btSoftBody implements btCollisionObject;
